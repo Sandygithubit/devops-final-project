@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout()
+    }
+
     stages {
         stage('Checkout Code') {
             steps {
@@ -27,15 +31,6 @@ pipeline {
             steps {
                 sh 'kubectl apply -f k8s/'
             }
-        }
-    }
-
-    post {
-        failure {
-            echo 'Pipeline failed'
-        }
-        success {
-            echo 'Pipeline succeeded'
         }
     }
 }
