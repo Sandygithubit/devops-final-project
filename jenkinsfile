@@ -2,9 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "ap-south-1"
-        ECR_REPO = "devops-app"
-        ACCOUNT_ID = "123456789012"
+        APP_NAME = "devops-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -12,47 +10,40 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'master',
-                url: 'https://github.com/Sandygithubit/devops-final-project.git'
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                docker build -t $ECR_REPO:$IMAGE_TAG .
-                '''
+                sh 'docker build -t $APP_NAME:$IMAGE_TAG .'
             }
         }
 
-        stage('Authenticate to AWS ECR') {
+        stage('Run Docker Container (Test)') {
             steps {
                 sh '''
-                aws ecr get-login-password --region $AWS_REGION \
-                | docker login --username AWS \
-                --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                docker rm -f $APP_NAME || true
+                docker run -d --name $APP_NAME -p 3000:3000 $APP_NAME:$IMAGE_TAG
                 '''
             }
         }
 
-        stage('Push Image to ECR') {
-            steps {
-                sh '''
-                docker tag $ECR_REPO:$IMAGE_TAG \
-                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
-
-                docker push \
-                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
-                '''
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes (Local)') {
             steps {
                 sh '''
                 kubectl apply -f k8s/
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed"
         }
     }
 }
